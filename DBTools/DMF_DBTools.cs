@@ -29,6 +29,8 @@ namespace DBToolsDll
         private string port;
 
         private string _connectionString;
+
+        private List<MySqlParameter> mySqlParameters;
         public int count;
         #endregion
 
@@ -171,6 +173,8 @@ namespace DBToolsDll
             }
 
         }
+
+        public List<MySqlParameter> MySqlParameters { get => mySqlParameters; set => mySqlParameters = value; }
         #endregion
 
         #region legacy getters and setters
@@ -312,6 +316,8 @@ namespace DBToolsDll
             using (MySql.Data.MySqlClient.MySqlConnection conn = new MySqlConnection(this.ConnectionString))
             {
                 MySqlCommand command = new MySqlCommand(this.Query, conn);
+                if (MySqlParameters != null)
+                    command.Parameters.AddRange(MySqlParameters.ToArray());
                 MySqlDataAdapter mySqlDataAdapter = new MySqlDataAdapter(command);
                 DataSet dataSet = new DataSet();
                 mySqlDataAdapter.Fill(dataSet);
@@ -328,7 +334,7 @@ namespace DBToolsDll
                     cont++;
 
                 }
-              
+
                 for (cont = 0; cont < values.Count; cont++)
                 {
                     lstObject.Add(new GenericObject
@@ -336,7 +342,7 @@ namespace DBToolsDll
                         columns = columns.ToArray(),
                         types = types.ToArray(),
                         values = values[cont].Row.ItemArray
-                      //  valuesString = values[cont].DataView
+                        //  valuesString = values[cont].DataView
                     });
                 }
 
@@ -344,13 +350,15 @@ namespace DBToolsDll
             }
 
         }
-    
+
 
 
         /// <summary>
-        /// Executes a sql query and, if sucessful, returns a void string, if error, returns the error message
+        /// Executes a sql query and, if sucessful, returns a void string, if error, returns the error message<br/>
+        /// Concatenating the query is not recommendable, use <see cref="MySqlParameters"/> to pass your parameters before executing this command.<br/>
         /// </summary>
-        public void MySQLExecuteQuery(String query="")
+        /// 
+        public void MySQLExecuteQuery(String query = "")
         {
 
             using (MySqlConnection mySqlConnection = new MySqlConnection(ConnectionString))
@@ -360,29 +368,35 @@ namespace DBToolsDll
                 {
                     MySqlCommand mySqlCommand = mySqlConnection.CreateCommand();
                     mySqlCommand.CommandText = this.getQuery();
+                    if (MySqlParameters != null)
+                        mySqlCommand.Parameters.AddRange(MySqlParameters.ToArray());
                     mySqlCommand.ExecuteNonQuery();
                 }
                 catch (MySqlException ex)
                 {
                     this.Error = ex.ToString();
                 }
-                finally
-                {
-                    bool flag = mySqlConnection.State == ConnectionState.Open;
-                    if (flag)
-                    {
-                        mySqlConnection.Close();
-                    }
-                }
+                mySqlConnection.Close();
+                //finally
+                //{
+                //    bool flag = mySqlConnection.State == ConnectionState.Open;
+                //    if (flag)
+                //    {
+                //        mySqlConnection.Close();
+                //    }
+                //}
             }
-          
+
         }
+
+
 
         /// <summary>
         /// Retrieves the DataView Representation in the database.<br/>
+        /// Concatenating the query is not recommendable, use <see cref="MySqlParameters"/> to pass your parameters before executing this command.<br/>
         /// </summary>
         /// <returns></returns>
-        public DataView RetrieveDataMySQL(String query="")
+        public DataView RetrieveDataMySQL(String query = "")
         {
             DataView defaultView = new DataView();
             try
@@ -392,8 +406,9 @@ namespace DBToolsDll
                 {
                     try
                     {
-                        MySqlCommand mySqlCommand = new MySqlCommand(query != null ? query : this.Query,conn);
-                        //mySqlCommand.CommandText = query!=null?query:this.Query;
+                        MySqlCommand mySqlCommand = new MySqlCommand(query != "" ? query : this.Query, conn);
+                        if (mySqlParameters != null)
+                            mySqlCommand.Parameters.AddRange(MySqlParameters.ToArray());
                         MySqlDataAdapter mySqlDataAdapter = new MySqlDataAdapter(mySqlCommand);
                         DataSet dataSet = new DataSet();
                         mySqlDataAdapter.Fill(dataSet);
@@ -411,13 +426,15 @@ namespace DBToolsDll
 
 
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 DataSet dataSet2 = new DataSet();
                 defaultView = dataSet2.Tables[0].DefaultView;
             }
             return defaultView;
         }
+
+
         #endregion
     }
 }

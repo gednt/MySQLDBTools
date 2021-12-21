@@ -62,6 +62,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DataExport.cs" />
     <Compile Include="DMF_DBTools.cs" />
     <Compile Include="Model\GenericObject.cs" />
     <Compile Include="Model\GenericObject_Simple.cs" />

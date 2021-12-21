@@ -31,7 +31,7 @@ namespace DBTools_Utilities
         /// </summary>
         /// <param name="obj"></param>
         /// <returns></returns>
-        public List<GenericObject>QueryBuilder(Object obj,String primaryKeyName="",bool autoIncrement=true)
+        public List<GenericObject> QueryBuilder(Object obj, String primaryKeyName = "", bool autoIncrement = true)
         {
             connectDB();
             var arrayObject = obj.GetType().GetProperties();
@@ -50,12 +50,15 @@ namespace DBTools_Utilities
                 {
                     if (i.PropertyType.Name.ToString() == "DateTime")
                     {
-                        values.Add(new GenericObject_Simple { 
-                            value = DateTime.Parse((string)obj.GetType().GetProperty(i.Name).GetValue(obj, null).ToString()).ToString("yyyy-MM-dd HH:mm:ss") 
-                            ,column = i.Name
-                            ,type = i.PropertyType.Name
+                        values.Add(new GenericObject_Simple
+                        {
+                            value = DateTime.Parse((string)obj.GetType().GetProperty(i.Name).GetValue(obj, null).ToString()).ToString("yyyy-MM-dd HH:mm:ss")
+                            ,
+                            column = i.Name
+                            ,
+                            type = i.PropertyType.Name
                         });
-                       // type.Add(i.PropertyType.Name);
+                        // type.Add(i.PropertyType.Name);
 
                     }
                     else
@@ -63,40 +66,42 @@ namespace DBTools_Utilities
                         switch (autoIncrement)
                         {
                             case false:
-                              //  fields.Add(i.Name);
+                                //  fields.Add(i.Name);
                                 values.Add(new GenericObject_Simple
                                 {
-                                  value =(string)obj.GetType().GetProperty(i.Name).GetValue(obj, null).ToString()
-                                  ,column = i.Name
-                                  ,type=i.PropertyType.Name
+                                    value = (string)obj.GetType().GetProperty(i.Name).GetValue(obj, null).ToString()
+                                  ,
+                                    column = i.Name
+                                  ,
+                                    type = i.PropertyType.Name
                                 });
-                               // type.Add(i.PropertyType.Name);
+                                // type.Add(i.PropertyType.Name);
                                 cont++;
                                 break;
                             case true:
-                                if(i.Name == primaryKeyName)
+                                if (i.Name == primaryKeyName)
                                 {
 
                                 }
                                 else
                                 {
-                                values.Add(new GenericObject_Simple
-                                {
-                                    value = (string)obj.GetType().GetProperty(i.Name).GetValue(obj, null).ToString()
-                                    ,
-                                    column = i.Name
-                                    ,
-                                    type = i.PropertyType.Name
-                                });
+                                    values.Add(new GenericObject_Simple
+                                    {
+                                        value = (string)obj.GetType().GetProperty(i.Name).GetValue(obj, null).ToString()
+                                        ,
+                                        column = i.Name
+                                        ,
+                                        type = i.PropertyType.Name
+                                    });
                                     cont++;
                                 }
                                 break;
                         }
-                           
-                        
-                        
-                    
-                        
+
+
+
+
+
 
                     }
 
@@ -110,7 +115,7 @@ namespace DBTools_Utilities
 
             }
             List<String> valueString = new List<string>();
-           foreach(var value in values)
+            foreach (var value in values)
             {
                 valueString.Add(value.value.ToString());
             }
@@ -121,11 +126,11 @@ namespace DBTools_Utilities
                 valuesReturn.Add(values[cont].value);
                 typesReturn.Add(values[cont].type);
             }
-            lstReturn.Add(new GenericObject { columns = columns.ToArray(), values = valuesReturn.ToArray(), types = typesReturn.ToArray(), valuesString=valueString.ToArray() });
+            lstReturn.Add(new GenericObject { columns = columns.ToArray(), values = valuesReturn.ToArray(), types = typesReturn.ToArray(), valuesString = valueString.ToArray() });
 
-        
-         
-    
+
+
+
 
             return lstReturn;
 
@@ -144,13 +149,13 @@ namespace DBTools_Utilities
         /// <param name="query"></param>
         /// <returns></returns>
         /// 
-        
+
         public String[] getInBd(String query)
         {
             setQuery(query);
 
             DataView dv = new DataView();
-            dv = retrieveDataMySQL();
+            dv = RetrieveDataMySQL();
             String[] arrayQuery = new String[dv.Count];
             for (int cont = 0; cont < dv.Count; cont++)
             {
@@ -172,7 +177,7 @@ namespace DBTools_Utilities
             DataView dv = new DataView();
             try
             {
-                dv = retrieveDataMySQL();
+                dv = RetrieveDataMySQL();
             }
             catch (Exception e)
             {
@@ -195,8 +200,8 @@ namespace DBTools_Utilities
         public void ExecuteQuery(String query)
         {
             setQuery(query);
-            mySQLExecuteQuery();
-  
+            MySQLExecuteQuery();
+
 
         }
         #endregion
@@ -286,7 +291,7 @@ namespace DBTools_Utilities
         /// <param name="_table"></param>
         /// <param name="_values"></param>
         /// <returns></returns>
-        public bool Update(String[] _fields, String _table, String[] _values, String condition="")
+        public bool Update(String[] _fields, String _table, String[] _values, String condition = "")
         {
             String fields = "", values = "";
             //MONTA OS CAMPOS
@@ -294,10 +299,10 @@ namespace DBTools_Utilities
 
             for (int cont = 0; cont < _fields.Length; cont++)
             {
-                fields += _fields[cont] + "="+_values[cont];
+                fields += _fields[cont] + "=" + _values[cont];
             }
             //fields = fields.Remove(fields.Length - 1, 1);
-            fields += " WHERE "+condition;
+            fields += " WHERE " + condition;
             query += fields;
             //EXECUTA A QUERY
             ExecuteQuery(query);
@@ -318,9 +323,9 @@ namespace DBTools_Utilities
         /// <returns></returns>
         public bool Delete(String _table, String condition)
         {
-            
+
             //MONTA OS CAMPOS
-            String query = "DELETE  FROM " + _table + " WHERE "+condition;
+            String query = "DELETE  FROM " + _table + " WHERE " + condition;
             //EXECUTA A QUERY
             ExecuteQuery(query);
             if (Error != null)
