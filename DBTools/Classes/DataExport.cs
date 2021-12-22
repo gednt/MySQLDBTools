@@ -10,6 +10,14 @@ namespace DBTools_Utilities
 {
     public class DataExport
     {
+        /// <summary>
+        /// Converts a lists of <see cref="DBTools.Model.GenericObject"/> to a csv.
+        /// </summary>
+        /// <param name="genericObject"></param>
+        /// <param name="separator"></param>
+        /// <param name="showColums"></param>
+        /// <param name="showTypes"></param>
+        /// <returns></returns>
         public String ToCsv(List<DBTools.Model.GenericObject> genericObject, char separator, bool showColums = true, bool showTypes = true)
         {
             string strReturn = "";
@@ -61,6 +69,13 @@ namespace DBTools_Utilities
             return strReturn;
         }
 
+        /// <summary>
+        /// Converts a csv to a <see cref="DataTable"/>.
+        /// </summary>
+        /// <param name="csv"></param>
+        /// <param name="separator"></param>
+        /// <param name="specifyColumnTypes"></param>
+        /// <returns></returns>
         public DataTable ToDataTable(String csv, char separator, bool specifyColumnTypes = false)
         {
             DataTable dt = new DataTable();

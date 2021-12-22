@@ -136,6 +136,9 @@ namespace DBTools_Utilities
 
 
         }
+        /// <summary>
+        /// Sets the attributes for the database
+        /// </summary>
         public void connectDB()
         {
             setDataBase(Database);
@@ -354,6 +357,28 @@ namespace DBTools_Utilities
 
 
         }
+        /// <summary>
+        /// Returns the columnIndex of the <seealso cref="GenericObject"/> making it easier to manipulate lists.
+        /// </summary>
+        /// <param name="genericObject"></param>
+        /// <param name="columnName"></param>
+        /// <returns></returns>
+        public int GetColumnIndex(GenericObject genericObject, String columnName)
+        {
+            if (genericObject != null)
+            {
+                for (int column = 0; column < genericObject.columns.Length; column++)
+                {
+                    if (genericObject.columns[column].ToString() == columnName)
+                    {
+                        return column;
+                    }
+                }
+            }
+            return -1;
+        }
+
+
         #endregion
 
 
