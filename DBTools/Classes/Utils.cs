@@ -259,10 +259,46 @@ namespace DBTools_Utilities
             //VALORES
             for (int cont = 0; cont < _fields.Length; cont++)
             {
-                int numero;
-                if (int.TryParse(_values[cont], out numero) == false)
+                double numero;
+                if (double.TryParse(_values[cont], out numero) == false)
                 {
-                    values += "'" + _values[cont] + "',";
+                    if (values != "''" && _values[cont] != null)
+                    {
+                        if (_values[cont].Length > 0)
+                        {
+                            if (_values[cont].Substring(0, 1) != "'")
+                            {
+                                values += "'" + _values[cont] + "',";
+                            }
+                            else
+                            {
+                                values += _values[cont] + ",";
+                            }
+
+                        }
+                        else
+                        {
+                            if (_values[cont].Length == 0)
+                                values += "null,";
+                        }
+
+                    }
+                    else
+                    {
+                        if (_values[cont].Length > 0)
+                        {
+                            if (_values[cont].Substring(0, 1) != "'")
+                            {
+                                values += _values[cont];
+                            }
+
+                        }
+                        else
+                        {
+                            values += "null,";
+                        }
+                    }
+
                 }
                 else
                 {
@@ -299,12 +335,62 @@ namespace DBTools_Utilities
             String fields = "", values = "";
             //MONTA OS CAMPOS
             String query = "UPDATE  " + _table + " SET ";
-
+            //VALORES
             for (int cont = 0; cont < _fields.Length; cont++)
             {
-                fields += _fields[cont] + "=" + _values[cont];
+                double numero;
+                if (double.TryParse(_values[cont], out numero) == false)
+                {
+                    if (values != "''" && _values[cont] != null)
+                    {
+                        if (_values[cont].Length > 0)
+                        {
+                            if (_values[cont].Substring(0, 1) != "'")
+                            {
+                                _values[cont] = "'" + _values[cont] + "'";
+                            }
+                            else
+                            {
+                                _values[cont] = _values[cont] + "";
+                            }
+
+                        }
+                        else
+                        {
+                            if (_values[cont].Length == 0)
+                                _values[cont] = "null";
+                        }
+
+                    }
+                    else
+                    {
+                        if (_values[cont].Length > 0)
+                        {
+                            if (_values[cont].Substring(0, 1) != "'")
+                            {
+                                _values[cont] = _values[cont];
+                            }
+
+                        }
+                        else
+                        {
+                            _values[cont] = "null";
+                        }
+                    }
+
+                }
+                else
+                {
+                    _values[cont] = _values[cont];
+                }
+
+            }
+            for (int cont = 0; cont < _fields.Length; cont++)
+            {
+                fields += _fields[cont] + "=" + _values[cont] + ",";
             }
             //fields = fields.Remove(fields.Length - 1, 1);
+            fields = fields.Substring(0, fields.Length - 1);
             fields += " WHERE " + condition;
             query += fields;
             //EXECUTA A QUERY
