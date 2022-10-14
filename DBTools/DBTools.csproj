@@ -11,6 +11,7 @@
     <AssemblyName>DBTools</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -62,18 +63,16 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Classes\DataExport.cs" />
-    <Compile Include="Classes\DMF_DBTools.cs" />
-    <Compile Include="Controller\DataExportController.cs" />
-    <Compile Include="Controller\DBToolsController.cs" />
-    <Compile Include="Controller\UtilsController.cs" />
-    <Compile Include="Interfaces\IDBTools.cs" />
+    <Compile Include="DataExport.cs" />
+    <Compile Include="DMF_DBTools.cs" />
     <Compile Include="Model\GenericObject.cs" />
     <Compile Include="Model\GenericObject_Simple.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Classes\Utils.cs" />
+    <Compile Include="Utils.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Classes\" />
+  </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
