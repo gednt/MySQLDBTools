@@ -30,72 +30,28 @@ namespace DBTools_Utilities
         /// <summary>
         /// Validates that an identifier (table name, column name) contains only safe characters.
         /// This helps prevent SQL injection in cases where identifiers cannot be parameterized.
-        /// Allows alphanumeric characters, underscores, backticks, and periods for qualified names.
-        /// For field lists (with multiple fields), use ValidateFieldList instead.
         /// </summary>
         /// <param name="identifier">The identifier to validate</param>
         /// <param name="identifierType">Type of identifier for error messaging</param>
         private void ValidateIdentifier(string identifier, string identifierType)
         {
-            if (string.IsNullOrWhiteSpace(identifier))
-            {
-                throw new ArgumentException($"The {identifierType} name cannot be null or empty.");
-            }
-
-            // Special handling for field lists (SELECT field1, field2, ... FROM ...)
-            if (identifierType == "fields" && (identifier.Contains(",") || identifier.Contains("*")))
-            {
-                ValidateFieldList(identifier);
-                return;
-            }
-
-            // For single identifiers: allow alphanumeric, underscore, backtick (for escaping), period (for qualified names)
-            // This is a conservative approach to prevent injection
-            foreach (char c in identifier)
-            {
-                if (!char.IsLetterOrDigit(c) && c != '_' && c != '`' && c != '.')
-                {
-                    throw new ArgumentException($"The {identifierType} name '{identifier}' contains invalid characters. Only alphanumeric characters, underscores, backticks, and periods are allowed.");
-                }
-            }
+            ValidateIdentifierStatic(identifier, identifierType);
         }
 
         /// <summary>
         /// Validates a comma-separated list of field identifiers.
-        /// Each field can contain alphanumeric characters, underscores, backticks, periods, and asterisks.
         /// </summary>
         /// <param name="fieldList">Comma-separated field list</param>
         private void ValidateFieldList(string fieldList)
         {
-            if (string.IsNullOrWhiteSpace(fieldList))
-            {
-                throw new ArgumentException("The field list cannot be null or empty.");
-            }
-
-            // Split by comma and validate each field
-            string[] fields = fieldList.Split(',');
-            foreach (string field in fields)
-            {
-                string trimmedField = field.Trim();
-                if (string.IsNullOrEmpty(trimmedField))
-                {
-                    throw new ArgumentException("The field list contains empty fields.");
-                }
-
-                // Allow alphanumeric, underscore, backtick, period, asterisk (for SELECT *)
-                foreach (char c in trimmedField)
-                {
-                    if (!char.IsLetterOrDigit(c) && c != '_' && c != '`' && c != '.' && c != '*' && c != ' ')
-                    {
-                        throw new ArgumentException($"The field '{trimmedField}' contains invalid characters. Only alphanumeric characters, underscores, backticks, periods, and asterisks are allowed.");
-                    }
-                }
-            }
+            ValidateFieldListStatic(fieldList);
         }
 
         /// <summary>
-        /// Static version of ValidateIdentifier for use in static methods.
         /// Validates that an identifier (table name, column name) contains only safe characters.
+        /// This helps prevent SQL injection in cases where identifiers cannot be parameterized.
+        /// Allows alphanumeric characters, underscores, backticks, and periods for qualified names.
+        /// For field lists (with multiple fields), use ValidateFieldList instead.
         /// </summary>
         /// <param name="identifier">The identifier to validate</param>
         /// <param name="identifierType">Type of identifier for error messaging</param>
@@ -125,8 +81,9 @@ namespace DBTools_Utilities
         }
 
         /// <summary>
-        /// Static version of ValidateFieldList.
         /// Validates a comma-separated list of field identifiers.
+        /// Each field can contain alphanumeric characters, underscores, backticks, periods, and asterisks.
+        /// Spaces are allowed only between tokens for readability (e.g., "field1, field2").
         /// </summary>
         /// <param name="fieldList">Comma-separated field list</param>
         private static void ValidateFieldListStatic(string fieldList)
@@ -146,12 +103,33 @@ namespace DBTools_Utilities
                     throw new ArgumentException("The field list contains empty fields.");
                 }
 
+                // Check for spaces within the field (not at boundaries which are trimmed)
+                // Spaces should only appear between words in expressions like "table.field AS alias"
+                // For basic field names, no spaces should be present
+                bool hasSpace = trimmedField.Contains(" ");
+                
                 // Allow alphanumeric, underscore, backtick, period, asterisk (for SELECT *)
+                // Spaces are allowed but trigger additional validation
                 foreach (char c in trimmedField)
                 {
                     if (!char.IsLetterOrDigit(c) && c != '_' && c != '`' && c != '.' && c != '*' && c != ' ')
                     {
-                        throw new ArgumentException($"The field '{trimmedField}' contains invalid characters. Only alphanumeric characters, underscores, backticks, periods, and asterisks are allowed.");
+                        throw new ArgumentException($"The field '{trimmedField}' contains invalid characters. Only alphanumeric characters, underscores, backticks, periods, asterisks, and spaces are allowed.");
+                    }
+                }
+
+                // If field contains spaces, validate it's not trying to inject SQL
+                // Check for common SQL keywords that shouldn't appear in field names
+                if (hasSpace)
+                {
+                    string upperField = trimmedField.ToUpper();
+                    string[] dangerousKeywords = { " OR ", " AND ", " UNION ", " SELECT ", " INSERT ", " UPDATE ", " DELETE ", " DROP ", " CREATE ", " ALTER ", " EXEC ", " EXECUTE ", "--", "/*", "*/" };
+                    foreach (string keyword in dangerousKeywords)
+                    {
+                        if (upperField.Contains(keyword))
+                        {
+                            throw new ArgumentException($"The field '{trimmedField}' contains potentially dangerous SQL keywords.");
+                        }
                     }
                 }
             }
