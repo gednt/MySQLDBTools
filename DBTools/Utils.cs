@@ -323,11 +323,11 @@ namespace DBTools_Utilities
         /// Returns a DataView based on the parameters given<br/>
         /// This class can and should be used with the <see cref="QueryBuilder(object)">QueryBuilder Command</see><br/>
         /// NOTE: For security, _fields and _table should be validated/sanitized as they cannot be parameterized.<br/>
-        /// Use parameterized conditions through MySqlParameters property instead of embedding values in _conditions string.
+        /// The _conditions parameter should use parameter placeholders (e.g., "id = @whereParam0") and values should be passed through MySqlParameters property before calling this method.
         /// </summary>
-        /// <param name="_fields"></param>
-        /// <param name="_table"></param>
-        /// <param name="_conditions"></param>
+        /// <param name="_fields">Field names to select</param>
+        /// <param name="_table">Table name</param>
+        /// <param name="_conditions">WHERE conditions (should use parameter placeholders like @whereParam0 for values)</param>
         /// <returns></returns>
         public DataView Select(String _fields, String _table, String _conditions)
         {
@@ -486,11 +486,9 @@ namespace DBTools_Utilities
         //MODULOS DE MANIPULAÇAO DE DADOS
         /// <summary>
         /// Returns a DataView based on the query without the select clause<br/>
-        /// 
+        /// NOTE: For security, use parameter placeholders (e.g., @param0) in the query and pass values through MySqlParameters property before calling this method.
         /// </summary>
-        /// <param name="_fields"></param>
-        /// <param name="_table"></param>
-        /// <param name="_conditions"></param>
+        /// <param name="query_without_select">Query without SELECT keyword (should use parameter placeholders for values)</param>
         /// <returns></returns>
         public DataView Select(String query_without_select)
         {
@@ -505,11 +503,12 @@ namespace DBTools_Utilities
         //MODULOS DE MANIPULAÇAO DE DADOS
         /// <summary>
         /// Returns a string based on the parameters given<br/>
-        /// NOTE: For security, this method validates identifiers. Use parameterized conditions through MySqlParameters for dynamic values.
+        /// NOTE: For security, this method validates identifiers. The _conditions parameter should use parameter placeholders (e.g., @whereParam0) for values.
+        /// Use MySqlParameters to provide the actual values when executing the query.
         /// </summary>
-        /// <param name="_fields"></param>
-        /// <param name="_table"></param>
-        /// <param name="_conditions"></param>
+        /// <param name="_fields">Field names to select</param>
+        /// <param name="_table">Table name</param>
+        /// <param name="_conditions">WHERE conditions (should use parameter placeholders like @whereParam0 for values)</param>
         /// <returns></returns>
         public static string SelectQuery(String _fields, String _table, String _conditions)
         {
