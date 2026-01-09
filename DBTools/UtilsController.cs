@@ -148,7 +148,7 @@ namespace DBTools_Utilities
         /// <summary>
         /// Counts records matching the predicate
         /// </summary>
-        public int Count(Expression<Func<T, bool>> predicate = null)
+        public new int Count(Expression<Func<T, bool>> predicate = null)
         {
             if (predicate == null)
             {
