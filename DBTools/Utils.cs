@@ -486,7 +486,7 @@ namespace DBTools_Utilities
         //MODULOS DE MANIPULAÇAO DE DADOS
         /// <summary>
         /// Returns a DataView based on the query without the select clause<br/>
-        /// NOTE: For security, use parameter placeholders (e.g., @param0) in the query and pass values through MySqlParameters property before calling this method.
+        /// NOTE: For security, use parameter placeholders (e.g., @whereParam0) in the query and pass values through MySqlParameters property before calling this method.
         /// </summary>
         /// <param name="query_without_select">Query without SELECT keyword (should use parameter placeholders for values)</param>
         /// <returns></returns>
