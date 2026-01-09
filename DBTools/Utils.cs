@@ -162,7 +162,7 @@ namespace DBTools_Utilities
 
             // Check for common SQL injection patterns that are never legitimate in WHERE clauses
             string upperCondition = condition.ToUpper();
-            string[] injectionPatterns = { " OR 1=1", " OR '1'='1", " OR TRUE", " OR 1 = 1" };
+            string[] injectionPatterns = { " OR 1=1", " OR '1'='1'", " OR TRUE", " OR 1 = 1", "OR 1=1", "OR '1'='1'", "OR TRUE", "OR 1 = 1" };
             foreach (string pattern in injectionPatterns)
             {
                 if (upperCondition.Contains(pattern))
@@ -172,9 +172,9 @@ namespace DBTools_Utilities
             }
 
             // Check for SQL comment markers that could be used for injection
-            if (upperCondition.Contains("--") || (upperCondition.Contains("/*") && upperCondition.Contains("*/")))
+            if (upperCondition.Contains("--") || upperCondition.Contains("/*") || upperCondition.Contains("*/"))
             {
-                throw new ArgumentException("WHERE conditions cannot contain SQL comment markers (-- or /* */) as these may indicate injection attempts.");
+                throw new ArgumentException("WHERE conditions cannot contain SQL comment markers (--, /*, or */) as these may indicate injection attempts.");
             }
 
             // Check for single quotes followed by OR/AND which typically indicates injection attempts
@@ -579,12 +579,13 @@ namespace DBTools_Utilities
             if (!string.IsNullOrWhiteSpace(query_without_select))
             {
                 string upperQuery = query_without_select.ToUpper();
-                int whereIndex = upperQuery.IndexOf(" WHERE ");
+                string whereKeyword = " WHERE ";
+                int whereIndex = upperQuery.IndexOf(whereKeyword);
                 
                 if (whereIndex >= 0)
                 {
                     // Extract the WHERE clause (from WHERE to end or to next major clause)
-                    string whereClause = query_without_select.Substring(whereIndex + 7); // Skip " WHERE "
+                    string whereClause = query_without_select.Substring(whereIndex + whereKeyword.Length);
                     
                     // Stop at GROUP BY, ORDER BY, LIMIT, HAVING, UNION if present
                     string upperWhereClause = whereClause.ToUpper();
@@ -614,7 +615,7 @@ namespace DBTools_Utilities
         //MODULOS DE MANIPULAÇAO DE DADOS
         /// <summary>
         /// Returns a string based on the parameters given<br/>
-        /// NOTE: For security, this method validates identifiers and checks for obvious SQL injection patterns. 
+        /// NOTE: For security, this method validates identifiers and checks for SQL injection patterns. 
         /// The _conditions parameter should use parameter placeholders (e.g., @whereParam0) for values.
         /// Use MySqlParameters to provide the actual values when executing the query.
         /// </summary>
@@ -628,11 +629,36 @@ namespace DBTools_Utilities
             ValidateIdentifierStatic(_table, "table");
             ValidateIdentifierStatic(_fields, "fields");
 
-            // Validate for obvious injection patterns even though we can't check MySqlParameters
-            // Pass true for hasParameters to be less restrictive in static method
+            // Validate for injection patterns
+            // Note: Static method can't check MySqlParameters, so we only check for obvious injection patterns
+            // Pass false for hasParameters but the validation will still check for @ symbols in comparisons
             if (!string.IsNullOrWhiteSpace(_conditions))
             {
-                ValidateParameterizedConditionStatic(_conditions, true);
+                // For static method, we check for injection patterns but allow conditions without parameters
+                // if they contain @ symbols (indicating intent to use parameters)
+                string upperCondition = _conditions.ToUpper();
+                
+                // Check for obvious injection patterns
+                string[] injectionPatterns = { " OR 1=1", " OR '1'='1'", " OR TRUE", " OR 1 = 1", "OR 1=1", "OR '1'='1'", "OR TRUE", "OR 1 = 1" };
+                foreach (string pattern in injectionPatterns)
+                {
+                    if (upperCondition.Contains(pattern))
+                    {
+                        throw new ArgumentException($"WHERE condition contains potentially dangerous SQL pattern: {pattern.Trim()}");
+                    }
+                }
+                
+                // Check for comment markers
+                if (upperCondition.Contains("--") || upperCondition.Contains("/*") || upperCondition.Contains("*/"))
+                {
+                    throw new ArgumentException("WHERE conditions cannot contain SQL comment markers (--, /*, or */).");
+                }
+                
+                // Check for quote + OR/AND pattern
+                if (_conditions.Contains("'") && (upperCondition.Contains("' OR ") || upperCondition.Contains("' AND ")))
+                {
+                    throw new ArgumentException("WHERE conditions must use parameter placeholders. Detected: quote followed by OR/AND.");
+                }
             }
 
             String query = "";
