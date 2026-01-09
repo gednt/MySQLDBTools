@@ -31,6 +31,7 @@ namespace DBTools_Utilities
         /// Validates that an identifier (table name, column name) contains only safe characters.
         /// This helps prevent SQL injection in cases where identifiers cannot be parameterized.
         /// Allows alphanumeric characters, underscores, backticks, and periods for qualified names.
+        /// For field lists (with multiple fields), use ValidateFieldList instead.
         /// </summary>
         /// <param name="identifier">The identifier to validate</param>
         /// <param name="identifierType">Type of identifier for error messaging</param>
@@ -41,14 +42,53 @@ namespace DBTools_Utilities
                 throw new ArgumentException($"The {identifierType} name cannot be null or empty.");
             }
 
-            // Allow alphanumeric, underscore, backtick (for escaping), period (for qualified names), 
-            // asterisk (for SELECT *), comma and space (for multiple fields)
+            // Special handling for field lists (SELECT field1, field2, ... FROM ...)
+            if (identifierType == "fields" && (identifier.Contains(",") || identifier.Contains("*")))
+            {
+                ValidateFieldList(identifier);
+                return;
+            }
+
+            // For single identifiers: allow alphanumeric, underscore, backtick (for escaping), period (for qualified names)
             // This is a conservative approach to prevent injection
             foreach (char c in identifier)
             {
-                if (!char.IsLetterOrDigit(c) && c != '_' && c != '`' && c != '.' && c != '*' && c != ',' && c != ' ')
+                if (!char.IsLetterOrDigit(c) && c != '_' && c != '`' && c != '.')
                 {
-                    throw new ArgumentException($"The {identifierType} name '{identifier}' contains invalid characters. Only alphanumeric characters, underscores, periods, asterisks, commas, and spaces are allowed.");
+                    throw new ArgumentException($"The {identifierType} name '{identifier}' contains invalid characters. Only alphanumeric characters, underscores, backticks, and periods are allowed.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Validates a comma-separated list of field identifiers.
+        /// Each field can contain alphanumeric characters, underscores, backticks, periods, and asterisks.
+        /// </summary>
+        /// <param name="fieldList">Comma-separated field list</param>
+        private void ValidateFieldList(string fieldList)
+        {
+            if (string.IsNullOrWhiteSpace(fieldList))
+            {
+                throw new ArgumentException("The field list cannot be null or empty.");
+            }
+
+            // Split by comma and validate each field
+            string[] fields = fieldList.Split(',');
+            foreach (string field in fields)
+            {
+                string trimmedField = field.Trim();
+                if (string.IsNullOrEmpty(trimmedField))
+                {
+                    throw new ArgumentException("The field list contains empty fields.");
+                }
+
+                // Allow alphanumeric, underscore, backtick, period, asterisk (for SELECT *)
+                foreach (char c in trimmedField)
+                {
+                    if (!char.IsLetterOrDigit(c) && c != '_' && c != '`' && c != '.' && c != '*' && c != ' ')
+                    {
+                        throw new ArgumentException($"The field '{trimmedField}' contains invalid characters. Only alphanumeric characters, underscores, backticks, periods, and asterisks are allowed.");
+                    }
                 }
             }
         }
@@ -66,14 +106,53 @@ namespace DBTools_Utilities
                 throw new ArgumentException($"The {identifierType} name cannot be null or empty.");
             }
 
-            // Allow alphanumeric, underscore, backtick (for escaping), period (for qualified names), 
-            // asterisk (for SELECT *), comma and space (for multiple fields)
+            // Special handling for field lists (SELECT field1, field2, ... FROM ...)
+            if (identifierType == "fields" && (identifier.Contains(",") || identifier.Contains("*")))
+            {
+                ValidateFieldListStatic(identifier);
+                return;
+            }
+
+            // For single identifiers: allow alphanumeric, underscore, backtick (for escaping), period (for qualified names)
             // This is a conservative approach to prevent injection
             foreach (char c in identifier)
             {
-                if (!char.IsLetterOrDigit(c) && c != '_' && c != '`' && c != '.' && c != '*' && c != ',' && c != ' ')
+                if (!char.IsLetterOrDigit(c) && c != '_' && c != '`' && c != '.')
                 {
-                    throw new ArgumentException($"The {identifierType} name '{identifier}' contains invalid characters. Only alphanumeric characters, underscores, periods, asterisks, commas, and spaces are allowed.");
+                    throw new ArgumentException($"The {identifierType} name '{identifier}' contains invalid characters. Only alphanumeric characters, underscores, backticks, and periods are allowed.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Static version of ValidateFieldList.
+        /// Validates a comma-separated list of field identifiers.
+        /// </summary>
+        /// <param name="fieldList">Comma-separated field list</param>
+        private static void ValidateFieldListStatic(string fieldList)
+        {
+            if (string.IsNullOrWhiteSpace(fieldList))
+            {
+                throw new ArgumentException("The field list cannot be null or empty.");
+            }
+
+            // Split by comma and validate each field
+            string[] fields = fieldList.Split(',');
+            foreach (string field in fields)
+            {
+                string trimmedField = field.Trim();
+                if (string.IsNullOrEmpty(trimmedField))
+                {
+                    throw new ArgumentException("The field list contains empty fields.");
+                }
+
+                // Allow alphanumeric, underscore, backtick, period, asterisk (for SELECT *)
+                foreach (char c in trimmedField)
+                {
+                    if (!char.IsLetterOrDigit(c) && c != '_' && c != '`' && c != '.' && c != '*' && c != ' ')
+                    {
+                        throw new ArgumentException($"The field '{trimmedField}' contains invalid characters. Only alphanumeric characters, underscores, backticks, periods, and asterisks are allowed.");
+                    }
                 }
             }
         }
@@ -342,7 +421,7 @@ namespace DBTools_Utilities
         }
         /// <summary>
         /// Updates the database using parameterized queries to prevent SQL injection.<br/>
-        /// NOTE: The condition parameter should use parameter placeholders (e.g., "id = @id") and values should be passed through MySqlParameters property before calling this method,
+        /// NOTE: The condition parameter should use parameter placeholders (e.g., "id = @whereParam0") and values should be passed through MySqlParameters property before calling this method,
         /// OR pass condition as a safe identifier-based expression.
         /// </summary>
         /// <param name="_fields"></param>
@@ -358,6 +437,12 @@ namespace DBTools_Utilities
             String setClause = "";
             List<MySql.Data.MySqlClient.MySqlParameter> parameters = new List<MySql.Data.MySqlClient.MySqlParameter>();
 
+            // Merge with any existing parameters (for WHERE clause) first
+            if (this.MySqlParameters != null)
+            {
+                parameters.AddRange(this.MySqlParameters);
+            }
+
             //BUILD SET CLAUSE WITH PARAMETERS
             String query = "UPDATE " + _table + " SET ";
 
@@ -369,10 +454,11 @@ namespace DBTools_Utilities
                 if (cont > 0)
                     setClause += ",";
                     
-                setClause += _fields[cont] + "=@param" + cont;
+                // Use setParam prefix to avoid conflicts with WHERE clause parameters
+                setClause += _fields[cont] + "=@setParam" + cont;
                 
                 // Add parameterized value
-                parameters.Add(new MySql.Data.MySqlClient.MySqlParameter("@param" + cont, _values[cont]));
+                parameters.Add(new MySql.Data.MySqlClient.MySqlParameter("@setParam" + cont, _values[cont]));
             }
 
             query += setClause;
@@ -383,11 +469,6 @@ namespace DBTools_Utilities
             }
 
             //SET PARAMETERS AND EXECUTE
-            // Merge with any existing parameters (for WHERE clause)
-            if (this.MySqlParameters != null)
-            {
-                parameters.AddRange(this.MySqlParameters);
-            }
             this.MySqlParameters = parameters;
             setQuery(query);
             MySQLExecuteQuery();
@@ -590,14 +671,14 @@ namespace DBTools_Utilities
         }
         /// <summary>
         /// Returns an UPDATE query with parameterized placeholders<br/>
-        /// This method returns a query with @param0, @param1, etc. placeholders for SET values.<br/>
+        /// This method returns a query with @setParam0, @setParam1, etc. placeholders for SET values.<br/>
         /// Use MySqlParameters to provide the actual values when executing the query.<br/>
-        /// NOTE: The condition parameter should also use parameter placeholders for values.
+        /// NOTE: The condition parameter should also use parameter placeholders (e.g., @whereParam0) for values to avoid naming conflicts.
         /// </summary>
         /// <param name="_fields">Field names</param>
         /// <param name="_table">Table name</param>
         /// <param name="_values">Values (used only to determine placeholder count)</param>
-        /// <param name="condition">WHERE condition (should use parameter placeholders for values)</param>
+        /// <param name="condition">WHERE condition (should use parameter placeholders like @whereParam0 for values)</param>
         /// <returns>Parameterized UPDATE query string</returns>
         public static string UpdateQuery(String[] _fields, String _table, String[] _values, String condition = "")
         {
@@ -615,7 +696,8 @@ namespace DBTools_Utilities
                 if (cont > 0)
                     setClause += ",";
                     
-                setClause += _fields[cont] + "=@param" + cont;
+                // Use setParam prefix to avoid conflicts with WHERE clause parameters
+                setClause += _fields[cont] + "=@setParam" + cont;
             }
 
             query += setClause;
