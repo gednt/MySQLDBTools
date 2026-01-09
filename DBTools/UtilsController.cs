@@ -299,7 +299,11 @@ namespace DBTools_Utilities
                                 // Handle type conversion
                                 if (prop.PropertyType == typeof(DateTime) && value is string)
                                 {
-                                    prop.SetValue(entity, DateTime.Parse((string)value));
+                                    DateTime dateValue;
+                                    if (DateTime.TryParse((string)value, out dateValue))
+                                    {
+                                        prop.SetValue(entity, dateValue);
+                                    }
                                 }
                                 else if (prop.PropertyType.IsGenericType && 
                                          prop.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
@@ -315,9 +319,17 @@ namespace DBTools_Utilities
                             }
                         }
                     }
-                    catch
+                    catch (ArgumentException)
                     {
-                        // Skip properties that can't be mapped
+                        // Skip properties that can't be mapped due to type mismatch
+                    }
+                    catch (FormatException)
+                    {
+                        // Skip properties with invalid format
+                    }
+                    catch (InvalidCastException)
+                    {
+                        // Skip properties that can't be cast
                     }
                 }
                 
@@ -391,9 +403,9 @@ namespace DBTools_Utilities
                 parameters.Add(new MySqlParameter(paramName, value ?? DBNull.Value));
                 return paramName;
             }
-            catch
+            catch (Exception ex)
             {
-                throw new NotSupportedException(string.Format("Expression type {0} is not supported", expression.NodeType));
+                throw new NotSupportedException(string.Format("Expression type {0} is not supported", expression.NodeType), ex);
             }
         }
 
