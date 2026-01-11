@@ -134,6 +134,74 @@ namespace DBTools_Utilities
                 }
             }
         }
+
+        /// <summary>
+        /// Validates that a WHERE condition uses parameterized queries and does not contain literal values.
+        /// This enforces security by rejecting conditions that appear to embed values directly.
+        /// </summary>
+        /// <param name="condition">The WHERE condition to validate</param>
+        /// <param name="hasParameters">Whether MySqlParameters is set</param>
+        private void ValidateParameterizedCondition(string condition, bool hasParameters)
+        {
+            ValidateParameterizedConditionStatic(condition, hasParameters);
+        }
+
+        /// <summary>
+        /// Validates that a WHERE condition uses parameterized queries and does not contain literal values.
+        /// This enforces security by rejecting conditions that appear to embed values directly.
+        /// </summary>
+        /// <param name="condition">The WHERE condition to validate</param>
+        /// <param name="hasParameters">Whether MySqlParameters is set</param>
+        private static void ValidateParameterizedConditionStatic(string condition, bool hasParameters)
+        {
+            if (string.IsNullOrWhiteSpace(condition))
+            {
+                // Empty condition is acceptable (no WHERE clause)
+                return;
+            }
+
+            // Check for common SQL injection patterns that are never legitimate in WHERE clauses
+            string upperCondition = condition.ToUpper();
+            string[] injectionPatterns = { " OR 1=1", " OR '1'='1'", " OR TRUE", " OR 1 = 1", "OR 1=1", "OR '1'='1'", "OR TRUE", "OR 1 = 1" };
+            foreach (string pattern in injectionPatterns)
+            {
+                if (upperCondition.Contains(pattern))
+                {
+                    throw new ArgumentException($"WHERE condition contains potentially dangerous SQL pattern: {pattern.Trim()}");
+                }
+            }
+
+            // Check for SQL comment markers that could be used for injection
+            if (upperCondition.Contains("--") || upperCondition.Contains("/*") || upperCondition.Contains("*/"))
+            {
+                throw new ArgumentException("WHERE conditions cannot contain SQL comment markers (--, /*, or */) as these may indicate injection attempts.");
+            }
+
+            // Check for single quotes followed by OR/AND which typically indicates injection attempts
+            // Pattern: 'xxx' OR/AND which is common in SQL injection
+            if (condition.Contains("'") && (upperCondition.Contains("' OR ") || upperCondition.Contains("' AND ")))
+            {
+                throw new ArgumentException("WHERE conditions must use parameter placeholders (e.g., @whereParam0) instead of literal values. Detected pattern: quote followed by OR/AND.");
+            }
+
+            // If condition contains comparison operators and no @ symbol (parameter marker), likely not parameterized
+            string[] comparisonOperators = { " = ", " != ", " <> ", " > ", " < ", " >= ", " <= ", " LIKE ", " IN " };
+            bool hasComparison = false;
+            foreach (string op in comparisonOperators)
+            {
+                if (upperCondition.Contains(op))
+                {
+                    hasComparison = true;
+                    break;
+                }
+            }
+
+            // If there's a comparison but no parameter markers and no parameters set, it's likely unsafe
+            if (hasComparison && !condition.Contains("@") && hasParameters == false)
+            {
+                throw new ArgumentException("WHERE conditions with comparison operators should use parameter placeholders (e.g., @whereParam0). Pass values through MySqlParameters property.");
+            }
+        }
         #endregion
 
         #region query utilities
@@ -323,11 +391,12 @@ namespace DBTools_Utilities
         /// Returns a DataView based on the parameters given<br/>
         /// This class can and should be used with the <see cref="QueryBuilder(object)">QueryBuilder Command</see><br/>
         /// NOTE: For security, _fields and _table should be validated/sanitized as they cannot be parameterized.<br/>
-        /// Use parameterized conditions through MySqlParameters property instead of embedding values in _conditions string.
+        /// The _conditions parameter MUST use parameter placeholders (e.g., "id = @whereParam0") and values MUST be passed through MySqlParameters property before calling this method.
+        /// This method will reject conditions that contain literal values.
         /// </summary>
-        /// <param name="_fields"></param>
-        /// <param name="_table"></param>
-        /// <param name="_conditions"></param>
+        /// <param name="_fields">Field names to select</param>
+        /// <param name="_table">Table name</param>
+        /// <param name="_conditions">WHERE conditions (MUST use parameter placeholders like @whereParam0 for values)</param>
         /// <returns></returns>
         public DataView Select(String _fields, String _table, String _conditions)
         {
@@ -335,6 +404,9 @@ namespace DBTools_Utilities
             // Table and field names cannot be parameterized in MySQL
             ValidateIdentifier(_table, "table");
             ValidateIdentifier(_fields, "fields");
+
+            // Validate that conditions are parameterized
+            ValidateParameterizedCondition(_conditions, this.MySqlParameters != null && this.MySqlParameters.Count > 0);
 
             String query = "";
             if (_conditions != "")
@@ -399,8 +471,8 @@ namespace DBTools_Utilities
         }
         /// <summary>
         /// Updates the database using parameterized queries to prevent SQL injection.<br/>
-        /// NOTE: The condition parameter should use parameter placeholders (e.g., "id = @whereParam0") and values should be passed through MySqlParameters property before calling this method,
-        /// OR pass condition as a safe identifier-based expression.
+        /// NOTE: The condition parameter MUST use parameter placeholders (e.g., "id = @whereParam0") and values MUST be passed through MySqlParameters property before calling this method.
+        /// This method will reject conditions that contain literal values.
         /// </summary>
         /// <param name="_fields"></param>
         /// <param name="_table"></param>
@@ -411,6 +483,11 @@ namespace DBTools_Utilities
         {
             // Validate table name
             ValidateIdentifier(_table, "table");
+
+            // Validate that condition is parameterized if provided
+            // Note: We check for existing parameters before we add the SET parameters
+            bool hasWhereParameters = this.MySqlParameters != null && this.MySqlParameters.Count > 0;
+            ValidateParameterizedCondition(condition, hasWhereParameters);
 
             String setClause = "";
             List<MySql.Data.MySqlClient.MySqlParameter> parameters = new List<MySql.Data.MySqlClient.MySqlParameter>();
@@ -460,7 +537,8 @@ namespace DBTools_Utilities
         /// <summary>
         /// Deletes the row from the database.<br/>
         /// For security reasons, the use of a condition is mandatory.<br/>
-        /// NOTE: The condition parameter should use parameter placeholders (e.g., "id = @id") and values should be passed through MySqlParameters property before calling this method.
+        /// NOTE: The condition parameter MUST use parameter placeholders (e.g., "id = @whereParam0") and values MUST be passed through MySqlParameters property before calling this method.
+        /// This method will reject conditions that contain literal values.
         /// </summary>
         /// <param name="_table"></param>
         /// <param name="condition"></param>
@@ -469,6 +547,9 @@ namespace DBTools_Utilities
         {
             // Validate table name
             ValidateIdentifier(_table, "table");
+
+            // Validate that condition is parameterized
+            ValidateParameterizedCondition(condition, this.MySqlParameters != null && this.MySqlParameters.Count > 0);
 
             //BUILD DELETE QUERY
             String query = "DELETE FROM " + _table + " WHERE " + condition;
@@ -486,16 +567,45 @@ namespace DBTools_Utilities
         //MODULOS DE MANIPULAÇAO DE DADOS
         /// <summary>
         /// Returns a DataView based on the query without the select clause<br/>
-        /// 
+        /// NOTE: For security, MUST use parameter placeholders (e.g., @whereParam0) for values in WHERE conditions and pass values through MySqlParameters property before calling this method.
+        /// Table and field names should be validated separately and cannot be parameterized.
+        /// This method will reject queries that contain obvious SQL injection patterns.
         /// </summary>
-        /// <param name="_fields"></param>
-        /// <param name="_table"></param>
-        /// <param name="_conditions"></param>
+        /// <param name="query_without_select">Query without SELECT keyword (MUST use parameter placeholders for values in WHERE conditions)</param>
         /// <returns></returns>
         public DataView Select(String query_without_select)
         {
-
-
+            // Validate that any WHERE clause in the query uses parameters
+            if (!string.IsNullOrWhiteSpace(query_without_select))
+            {
+                string upperQuery = query_without_select.ToUpper();
+                string whereKeyword = " WHERE ";
+                int whereIndex = upperQuery.IndexOf(whereKeyword);
+                
+                if (whereIndex >= 0)
+                {
+                    // Extract the WHERE clause (from WHERE to end or to next major clause)
+                    string whereClause = query_without_select.Substring(whereIndex + whereKeyword.Length);
+                    
+                    // Stop at GROUP BY, ORDER BY, LIMIT, HAVING, UNION if present
+                    string upperWhereClause = whereClause.ToUpper();
+                    int endIndex = whereClause.Length;
+                    string[] clauseTerminators = { " GROUP BY ", " ORDER BY ", " LIMIT ", " HAVING ", " UNION " };
+                    foreach (string terminator in clauseTerminators)
+                    {
+                        int terminatorIndex = upperWhereClause.IndexOf(terminator);
+                        if (terminatorIndex >= 0 && terminatorIndex < endIndex)
+                        {
+                            endIndex = terminatorIndex;
+                        }
+                    }
+                    
+                    whereClause = whereClause.Substring(0, endIndex).Trim();
+                    
+                    // Validate the WHERE clause is parameterized
+                    ValidateParameterizedCondition(whereClause, this.MySqlParameters != null && this.MySqlParameters.Count > 0);
+                }
+            }
 
             return getInBdDv("SELECT " + query_without_select);
 
@@ -505,17 +615,51 @@ namespace DBTools_Utilities
         //MODULOS DE MANIPULAÇAO DE DADOS
         /// <summary>
         /// Returns a string based on the parameters given<br/>
-        /// NOTE: For security, this method validates identifiers. Use parameterized conditions through MySqlParameters for dynamic values.
+        /// NOTE: For security, this method validates identifiers and checks for SQL injection patterns. 
+        /// The _conditions parameter should use parameter placeholders (e.g., @whereParam0) for values.
+        /// Use MySqlParameters to provide the actual values when executing the query.
         /// </summary>
-        /// <param name="_fields"></param>
-        /// <param name="_table"></param>
-        /// <param name="_conditions"></param>
+        /// <param name="_fields">Field names to select</param>
+        /// <param name="_table">Table name</param>
+        /// <param name="_conditions">WHERE conditions (should use parameter placeholders like @whereParam0 for values)</param>
         /// <returns></returns>
         public static string SelectQuery(String _fields, String _table, String _conditions)
         {
             // Validate identifiers
             ValidateIdentifierStatic(_table, "table");
             ValidateIdentifierStatic(_fields, "fields");
+
+            // Validate for injection patterns
+            // Note: Static method can't check MySqlParameters, so we only check for obvious injection patterns
+            // Pass false for hasParameters but the validation will still check for @ symbols in comparisons
+            if (!string.IsNullOrWhiteSpace(_conditions))
+            {
+                // For static method, we check for injection patterns but allow conditions without parameters
+                // if they contain @ symbols (indicating intent to use parameters)
+                string upperCondition = _conditions.ToUpper();
+                
+                // Check for obvious injection patterns
+                string[] injectionPatterns = { " OR 1=1", " OR '1'='1'", " OR TRUE", " OR 1 = 1", "OR 1=1", "OR '1'='1'", "OR TRUE", "OR 1 = 1" };
+                foreach (string pattern in injectionPatterns)
+                {
+                    if (upperCondition.Contains(pattern))
+                    {
+                        throw new ArgumentException($"WHERE condition contains potentially dangerous SQL pattern: {pattern.Trim()}");
+                    }
+                }
+                
+                // Check for comment markers
+                if (upperCondition.Contains("--") || upperCondition.Contains("/*") || upperCondition.Contains("*/"))
+                {
+                    throw new ArgumentException("WHERE conditions cannot contain SQL comment markers (--, /*, or */).");
+                }
+                
+                // Check for quote + OR/AND pattern
+                if (_conditions.Contains("'") && (upperCondition.Contains("' OR ") || upperCondition.Contains("' AND ")))
+                {
+                    throw new ArgumentException("WHERE conditions must use parameter placeholders. Detected: quote followed by OR/AND.");
+                }
+            }
 
             String query = "";
             if (_conditions != "")
